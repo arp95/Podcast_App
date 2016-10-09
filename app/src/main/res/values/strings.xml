@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name" translatable="false">Podcast App</string>
+    <string name="action_settings">Settings</string>
+    <string name="connection_failed">Connection Failed</string>
+    <string name="connection_success">Connecting..</string>
+    <string name="error_taking_data">Error while taking data!</string>
+    <string name="wifi_off">Please switch ON your WIFI!</string>
+    <string name="device_not_supported">Device not supported..</string>
+    <string name="banner_home_footer" translatable="false">ca-app-pub-6673110532995864/2832650633</string>
+    <string name="title_activity_podcast_description">Podcast Description</string>
+    <string name="app_widget" translatable="false">New App Widget</string>
+    <string name="imagedesc">This is a Podcast Example Image</string>
+</resources>
