@@ -26,6 +26,12 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.common.ConnectionResult;
@@ -44,7 +50,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -64,6 +69,8 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
     AdView adView;
     private int LOADER_ID=1;
     ListAdapterr adapter;
+    RequestQueue requestQueue;
+    JsonObjectRequest jsonObjectRequest;
 
     public MainActivityFragment() {
     }
@@ -78,6 +85,7 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View view = inflater.inflate(R.layout.fragment_main, container, false);
+        requestQueue = Volley.newRequestQueue(mActivity);
         recyclerView = (RecyclerView) view.findViewById(R.id.grid);
         country = mActivity.getResources().getConfiguration().locale.getDisplayCountry();
         tm = (TelephonyManager) mActivity.getSystemService(Context.TELEPHONY_SERVICE);
@@ -151,13 +159,68 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
 
         //getting country name
         url2 = tm.getSimCountryIso();
-
         //getting internet info
         ConnectivityManager conn = (ConnectivityManager) mActivity.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = conn.getActiveNetworkInfo();
         if (networkInfo != null && networkInfo.isConnectedOrConnecting()) {
-            new FetchPodcastTask().execute(url1 + url2);
-        } else
+
+            jsonObjectRequest = new JsonObjectRequest(Request.Method.GET , url1 + url2  ,null,
+                    new Response.Listener<JSONObject>() {
+                        @Override
+                        public void onResponse(JSONObject response) {
+
+                            try {
+                                JSONArray array = response.getJSONArray("results");
+                                if(array!=null) {
+                                    for (int i = 0; i < array.length(); i++) {
+                                        JSONObject c = array.getJSONObject(i);
+                                        if (c != null && c.getString("artworkUrl600")!=null && c.getString("artistName")!=null && c.getString("collectionName")!=null && c.getString("primaryGenreName")!=null && c.getString("country")!=null) {
+                                            String imageUrl = c.getString("artworkUrl600");
+                                            String title = c.getString("artistName");
+                                            String CollectionName = c.getString("collectionName");
+                                            String GenreName = c.getString("primaryGenreName");
+                                            String TrackCount = c.getString("trackCount");
+                                            String country = c.getString("country");
+                                            //adding into the database provided none of these values are null
+                                            ContentValues contentValues = new ContentValues();
+                                            contentValues.put(PodcastDescriptionHandler.KEY_ARTIST_NAME, title);
+                                            contentValues.put(PodcastDescriptionHandler.KEY_COLLECTION_NAME, CollectionName);
+                                            contentValues.put(PodcastDescriptionHandler.KEY_GENRE_NAME, GenreName);
+                                            contentValues.put(PodcastDescriptionHandler.KEY_TRACK_COUNT, TrackCount);
+                                            contentValues.put(PodcastDescriptionHandler.KEY_COUNTRY, country);
+                                            contentValues.put(PodcastDescriptionHandler.KEY_IMAGE_URL, imageUrl);
+                                            Cursor cursor = mActivity.getContentResolver().query(PodcastContentProvider.CONTENT_URI, null, null, null, "artistName");
+                                            int f = 0;
+                                            while (cursor.getCount() != 0 && cursor.moveToNext()) {
+                                                if (cursor.getString(1).equals(title)) {
+                                                    f = 1;
+                                                    break;
+                                                }
+                                            }
+                                            if (f == 0) {
+                                                Uri uri = mActivity.getContentResolver().insert(PodcastContentProvider.CONTENT_URI, contentValues);
+                                            }
+                                            //arrayList.add(imageUrl);
+                                        }
+                                    }
+                                }
+                                //grid.addItemDecoration(new com.example.arpitdec5.popularmovies.DividerItemDecoration(mActivity, LinearLayoutManager.VERTICAL));
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                                Toast.makeText(mActivity, R.string.error_taking_data , Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    },
+                    new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+                            Toast.makeText(mActivity , "Error while taking data !!" , Toast.LENGTH_LONG).show();
+                            error.printStackTrace();
+                        }
+                    });
+            requestQueue.add(jsonObjectRequest);
+        }
+        else
             Toast.makeText(mActivity, R.string.wifi_off , Toast.LENGTH_LONG).show();
     }
 
@@ -165,6 +228,7 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
     public void onStop() {
         super.onStop();
         checkPlayServices();
+        requestQueue.cancelAll("GET");
     }
 
     @Override
@@ -172,99 +236,6 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
         super.onDestroyView();
         if(adView!=null)
             adView.destroy();
-    }
-
-    //performing the action to fetch json string from the api through a seperate thread
-    public class FetchPodcastTask extends AsyncTask<String, Void, String> {
-        private final String LOG_TAG = FetchPodcastTask.class.getSimpleName();
-        //performs the required action to fetch json string
-        @Override
-        protected String doInBackground(String... params) {
-            try {
-                return downloadUrl(params[0]);
-            } catch (IOException e) {
-                return "invalid !";
-            }
-        }
-        //fetches json string from the inputBuffer
-        // this is where you get the json string and do whatever you want to do over here to fetch the info .
-        @Override
-        protected void onPostExecute(String s) {
-
-            if (s != null) {
-                try {
-                    JSONObject jsonObject = new JSONObject(s);
-                    JSONArray array = jsonObject.getJSONArray("results");
-                    if(array!=null) {
-                        for (int i = 0; i < array.length(); i++) {
-                            JSONObject c = array.getJSONObject(i);
-                            if (c != null && c.getString("artworkUrl600")!=null && c.getString("artistName")!=null && c.getString("collectionName")!=null && c.getString("primaryGenreName")!=null && c.getString("country")!=null) {
-                                String imageUrl = c.getString("artworkUrl600");
-                                String title = c.getString("artistName");
-                                String CollectionName = c.getString("collectionName");
-                                String GenreName = c.getString("primaryGenreName");
-                                String TrackCount = c.getString("trackCount");
-                                String country = c.getString("country");
-                                //adding into the database provided none of these values are null
-                                ContentValues contentValues = new ContentValues();
-                                contentValues.put(PodcastDescriptionHandler.KEY_ARTIST_NAME, title);
-                                contentValues.put(PodcastDescriptionHandler.KEY_COLLECTION_NAME, CollectionName);
-                                contentValues.put(PodcastDescriptionHandler.KEY_GENRE_NAME, GenreName);
-                                contentValues.put(PodcastDescriptionHandler.KEY_TRACK_COUNT, TrackCount);
-                                contentValues.put(PodcastDescriptionHandler.KEY_COUNTRY, country);
-                                contentValues.put(PodcastDescriptionHandler.KEY_IMAGE_URL, imageUrl);
-                                Cursor cursor = mActivity.getContentResolver().query(PodcastContentProvider.CONTENT_URI, null, null, null, "artistName");
-                                int f = 0;
-                                while (cursor.getCount() != 0 && cursor.moveToNext()) {
-                                    if (cursor.getString(1).equals(title)) {
-                                        f = 1;
-                                        break;
-                                    }
-                                }
-                                if (f == 0) {
-                                    Uri uri = mActivity.getContentResolver().insert(PodcastContentProvider.CONTENT_URI, contentValues);
-                                }
-                                //arrayList.add(imageUrl);
-                            }
-                        }
-                    }
-                    //grid.addItemDecoration(new com.example.arpitdec5.popularmovies.DividerItemDecoration(mActivity, LinearLayoutManager.VERTICAL));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                    Toast.makeText(mActivity, R.string.error_taking_data , Toast.LENGTH_SHORT).show();
-                }
-            }
-        }
-    }
-
-    private String downloadUrl(String myurl) throws IOException {
-        InputStream is = null;
-        String result = null;
-        try {
-            URL url = new URL(myurl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setReadTimeout(10000);
-            conn.setConnectTimeout(15000);
-            conn.setRequestMethod("GET");
-            conn.setDoInput(true);
-            conn.connect();
-            int response = conn.getResponseCode();
-            is = conn.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"), 8);
-            StringBuilder sb = new StringBuilder();
-            String line = null;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line + "\n");
-            }
-            result = sb.toString();
-        } catch (Exception e) {
-        } finally {
-            try {
-                if (is != null) is.close();
-            } catch (Exception squish) {
-            }
-        }
-        return result;
     }
 
     public class ListAdapterr extends RecyclerView.Adapter<ListAdapterr.ViewHolder> {
