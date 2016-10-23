@@ -1,5 +1,4 @@
 package com.example.arpitdec5.podcastapp;
-
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
@@ -24,6 +23,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.Request;
@@ -243,8 +243,7 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
         Cursor dataCursor;
         Activity mActivity;
 
-        public ListAdapterr(Activity activity , Cursor cursor)
-        {
+        public ListAdapterr(Activity activity , Cursor cursor){
             mActivity = activity;
             dataCursor = cursor;
         }
@@ -264,10 +263,12 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
         public class ViewHolder extends RecyclerView.ViewHolder{
 
             ImageView imageView;
+            TextView textView;
 
             public ViewHolder(View itemView) {
                 super(itemView);
                 imageView = (ImageView) itemView.findViewById(R.id.image);
+                textView = (TextView) itemView.findViewById(R.id.podcast_text);
             }
         }
 
@@ -284,12 +285,15 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
             dataCursor.moveToPosition(position);
             final String text = dataCursor.getString(2);
 
+            holder.textView.setText(dataCursor.getString(4));
+
             Picasso.with(mActivity)
                     .load(text)
                     .placeholder(R.drawable.error)
                     .error(R.drawable.error)
                     .resize(350,350)
                     .into(holder.imageView);
+
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
