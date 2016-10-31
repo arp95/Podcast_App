@@ -62,8 +62,8 @@ public class MainActivityFragment extends Fragment implements GoogleApiClient.Co
     String url2="us";
     String[] images;
     GoogleApiClient googleApiClient;
-    double l1=27.90;
-    double l2=45.80;
+    double l1=30;
+    double l2=45;
     String country="United States";
     TelephonyManager tm;
     AdView adView;
